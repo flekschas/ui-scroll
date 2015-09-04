@@ -7,6 +7,7 @@ angular.module('application', ['ui.scroll', 'ui.scroll.jqlite'])
 				get = (index, count, success)->
 					$timeout(
 						->
+							console.log "serving ##{index} count #{count}"
 							result = []
 							for i in [index..index + count-1]
 								result.push "item ##{i}"

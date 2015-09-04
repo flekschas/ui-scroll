@@ -17,7 +17,7 @@
 <body>
     <h2 style="position: fixed; left: 150px; top: 0;">is loading: {{loading}}; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a href="../index.html"> browse sample code</a></h2>
     <h2 style="position: fixed; left: 150px; top: 20px;"> top visible: {{topItem}} <input type="checkbox" ng-model="visible">Visible {{visible}}</h2>
-    <div ui-scroll-viewport class="viewport" ng-show="visible">
+    <div ui-scroll-viewport class="viewport" style="visibility:{{{true:'visible', false: 'hidden'}[!visible]||'hidden' }}">
         <ul>
             <li ui-scroll="item in datasource" style="height:20px" is-loading="loading">*{{item}}*</li>
         </ul>
