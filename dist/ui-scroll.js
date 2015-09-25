@@ -1,7 +1,7 @@
 /*!
  * angular-ui-scroll
  * https://github.com/angular-ui/ui-scroll.git
- * Version: 1.3.2 -- 2015-09-03T15:39:10.862Z
+ * Version: 1.3.2 -- 2015-09-25T15:27:20.679Z
  * License: MIT
  */
  
@@ -43,7 +43,7 @@ angular.module('ui.scroll', []).directive('uiScrollViewport', function() {
       terminal: true,
       compile: function(elementTemplate, attr, linker) {
         return function($scope, element, $attr, controllers) {
-          var adapter, adapterOnScope, adjustBuffer, adjustBufferAfterFetch, applyUpdate, bof, bottomVisiblePos, buffer, bufferPadding, bufferSize, builder, calculateTopProperties, clipBottom, clipTop, datasource, datasourceName, dismissPendingRequests, enqueueFetch, eof, eventListener, fetch, first, insertElement, insertElementAnimated, insertItem, insertWrapperContent, isAngularVersionLessThen1_3, isDatasourceValid, isElementVisible, itemName, loading, log, match, next, pending, processBufferedItems, reload, removeFromBuffer, removeItem, resizeAndScrollHandler, ridActual, scrollHeight, shouldLoadBottom, shouldLoadTop, topVisible, topVisiblePos, unsupportedMethod, viewport, viewportScope, visibilityWatcher, wheelHandler;
+          var absBottomVisiblePos, adapter, adapterOnScope, adjustBuffer, adjustBufferAfterFetch, applyUpdate, bof, bottomVisiblePos, buffer, bufferPadding, bufferSize, builder, calculateBottomProperties, calculateTopProperties, clipBottom, clipTop, datasource, datasourceName, dismissPendingRequests, enqueueFetch, eof, eventListener, fetch, first, firstVisibleBufferIndex, insertElement, insertElementAnimated, insertItem, insertWrapperContent, isAngularVersionLessThen1_3, isDatasourceValid, isElementVisible, itemName, lastVisibleBufferIndex, loading, log, match, next, pending, processBufferedItems, reload, removeFromBuffer, removeItem, resizeAndScrollHandler, ridActual, scrollHeight, shouldLoadBottom, shouldLoadTop, topVisible, topVisiblePos, unsupportedMethod, viewport, viewportScope, visibilityWatcher, wheelHandler;
           log = console.debug || console.log;
           if (!(match = $attr.uiScroll.match(/^\s*(\w+)\s+in\s+([\w\.]+)\s*$/))) {
             throw new Error('Expected uiScroll in form of \'_item_ in _datasource_\' but got \' + $attr.uiScroll + \'');
@@ -76,6 +76,8 @@ angular.module('ui.scroll', []).directive('uiScrollViewport', function() {
           pending = [];
           eof = false;
           bof = false;
+          firstVisibleBufferIndex = 0;
+          lastVisibleBufferIndex = -1;
           isAngularVersionLessThen1_3 = angular.version.major === 1 && angular.version.minor < 3;
           removeItem = $animate ? isAngularVersionLessThen1_3 ? function(wrapper) {
             var deferred;
@@ -224,6 +226,9 @@ angular.module('ui.scroll', []).directive('uiScrollViewport', function() {
             eof = false;
             bof = false;
             return adjustBuffer(ridActual);
+          };
+          absBottomVisiblePos = function() {
+            return viewport[0].getBoundingClientRect().bottom;
           };
           bottomVisiblePos = function() {
             return viewport.scrollTop() + viewport.outerHeight();
@@ -419,11 +424,11 @@ angular.module('ui.scroll', []).directive('uiScrollViewport', function() {
             return keepFetching;
           };
           calculateTopProperties = function() {
-            var item, itemHeight, itemTop, j, len, newRow, results, rowTop, topHeight;
+            var index, item, itemHeight, itemTop, j, len, newRow, results, rowTop, topHeight;
             topHeight = 0;
             results = [];
-            for (j = 0, len = buffer.length; j < len; j++) {
-              item = buffer[j];
+            for (index = j = 0, len = buffer.length; j < len; index = ++j) {
+              item = buffer[index];
               itemTop = item.element.offset().top;
               newRow = rowTop !== itemTop;
               rowTop = itemTop;
@@ -434,12 +439,25 @@ angular.module('ui.scroll', []).directive('uiScrollViewport', function() {
                 results.push(topHeight += itemHeight);
               } else {
                 if (newRow) {
+                  firstVisibleBufferIndex = index;
                   topVisible(item);
+                  break;
+                } else {
+                  results.push(void 0);
                 }
-                break;
               }
             }
             return results;
+          };
+          calculateBottomProperties = function() {
+            var index;
+            index = buffer.length;
+            while (index--) {
+              if (buffer[index].element[0].getBoundingClientRect().top < absBottomVisiblePos()) {
+                lastVisibleBufferIndex = index;
+                break;
+              }
+            }
           };
           adjustBuffer = function(rid) {
             return $timeout(function() {
@@ -452,7 +470,8 @@ angular.module('ui.scroll', []).directive('uiScrollViewport', function() {
                 }
               }
               if (pending.length === 0) {
-                return calculateTopProperties();
+                calculateTopProperties();
+                calculateBottomProperties();
               }
             });
           };
@@ -474,7 +493,8 @@ angular.module('ui.scroll', []).directive('uiScrollViewport', function() {
               pending.shift();
               if (pending.length === 0) {
                 loading(false);
-                return calculateTopProperties();
+                calculateTopProperties();
+                calculateBottomProperties();
               } else {
                 return fetch(rid);
               }
@@ -623,6 +643,17 @@ angular.module('ui.scroll', []).directive('uiScrollViewport', function() {
               insertItem('prepend', item);
             }
             return adjustBuffer(ridActual);
+          };
+          adapter.visibleItems = function(prop) {
+            var i, out, to;
+            out = [];
+            i = firstVisibleBufferIndex;
+            to = Math.min(lastVisibleBufferIndex, buffer.length - 1);
+            while (i <= to) {
+              out.push(buffer[i].scope[itemName][prop]);
+              i++;
+            }
+            return out;
           };
           if ($attr.adapter) {
             adapterOnScope = $parse($attr.adapter)($scope);

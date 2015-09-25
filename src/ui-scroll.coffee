@@ -65,6 +65,8 @@ angular.module('ui.scroll', [])
 				pending = []
 				eof = false
 				bof = false
+				firstVisibleBufferIndex = 0
+				lastVisibleBufferIndex = -1
 
 				# Element manipulation routines
 
@@ -195,6 +197,9 @@ angular.module('ui.scroll', [])
 					eof = false
 					bof = false
 					adjustBuffer ridActual
+
+				absBottomVisiblePos = ->
+					viewport[0].getBoundingClientRect().bottom
 
 				bottomVisiblePos = ->
 					viewport.scrollTop() + viewport.outerHeight()
@@ -356,7 +361,7 @@ angular.module('ui.scroll', [])
 
 				calculateTopProperties = ->
 					topHeight = 0
-					for item in buffer
+					for item, index in buffer
 						itemTop = item.element.offset().top
 						newRow = rowTop isnt itemTop
 						rowTop = itemTop
@@ -364,8 +369,18 @@ angular.module('ui.scroll', [])
 						if newRow and (builder.topDataPos() + topHeight + itemHeight < topVisiblePos())
 							topHeight += itemHeight
 						else
-							topVisible(item) if newRow
+							if newRow
+								firstVisibleBufferIndex = index
+								topVisible(item)
+								break
+
+				calculateBottomProperties = ->
+					index = buffer.length
+					while index--
+						if buffer[index].element[0].getBoundingClientRect().top < absBottomVisiblePos()
+							lastVisibleBufferIndex = index
 							break
+					return
 
 				adjustBuffer = (rid) ->
 
@@ -382,6 +397,8 @@ angular.module('ui.scroll', [])
 
 						if pending.length == 0
 							calculateTopProperties()
+							calculateBottomProperties()
+							return
 
 				adjustBufferAfterFetch = (rid) ->
 
@@ -403,6 +420,8 @@ angular.module('ui.scroll', [])
 						if pending.length == 0
 							loading(false)
 							calculateTopProperties()
+							calculateBottomProperties()
+							return
 						else
 							fetch(rid)
 
@@ -524,6 +543,15 @@ angular.module('ui.scroll', [])
 						--first
 						insertItem 'prepend', item
 					adjustBuffer ridActual
+
+				adapter.visibleItems = (prop) ->
+					out = []
+					i = firstVisibleBufferIndex
+					to = Math.min(lastVisibleBufferIndex, buffer.length - 1)
+					while i <= to
+						out.push(buffer[i].scope[itemName][prop])
+						i++
+					out
 
 				if $attr.adapter # so we have an adapter on $scope
 					adapterOnScope = $parse($attr.adapter)($scope)
